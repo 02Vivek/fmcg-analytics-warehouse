@@ -12,6 +12,26 @@ async function query(sql) {
   return rows;
 }
 
+// BigQuery's Node client returns NUMERIC as strings and DATE as {value: "..."}
+// objects (to avoid precision loss). Convert both to plain JS types for the API.
+function normalizeRow(row) {
+  const out = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (value && typeof value === "object" && "value" in value) {
+      out[key] = value.value;
+    } else if (typeof value === "string" && value !== "" && !isNaN(Number(value))) {
+      out[key] = Number(value);
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+function normalizeRows(rows) {
+  return rows.map(normalizeRow);
+}
+
 const app = express();
 app.use(cors());
 
@@ -19,12 +39,12 @@ app.get("/api/summary", async (req, res) => {
   try {
     const rows = await query(`
       select
-        sum(net_amount) as total_revenue,
-        sum(quantity) as units_sold,
-        avg(net_amount) as avg_order_value
+        cast(sum(net_amount) as float64) as total_revenue,
+        cast(sum(quantity) as float64) as units_sold,
+        cast(avg(net_amount) as float64) as avg_order_value
       from \`${PROJECT_ID}.dev_marts.fct_sales_unified\`
     `);
-    res.json(rows[0]);
+    res.json(normalizeRow(rows[0]));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -33,13 +53,13 @@ app.get("/api/summary", async (req, res) => {
 app.get("/api/trend", async (req, res) => {
   try {
     const rows = await query(`
-      select d.date, sum(f.net_amount) as net_amount
+      select cast(d.date as string) as date, cast(sum(f.net_amount) as float64) as net_amount
       from \`${PROJECT_ID}.dev_marts.fct_sales_unified\` f
       left join \`${PROJECT_ID}.dev_marts.dim_date\` d on f.date_key = d.date_key
       group by d.date
       order by d.date
     `);
-    res.json(rows);
+    res.json(normalizeRows(rows));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -48,13 +68,13 @@ app.get("/api/trend", async (req, res) => {
 app.get("/api/by-category", async (req, res) => {
   try {
     const rows = await query(`
-      select p.category, sum(f.net_amount) as net_amount
+      select p.category, cast(sum(f.net_amount) as float64) as net_amount
       from \`${PROJECT_ID}.dev_marts.fct_sales_unified\` f
       left join \`${PROJECT_ID}.dev_marts.dim_product\` p on f.product_key = p.product_key
       group by p.category
       order by net_amount desc
     `);
-    res.json(rows);
+    res.json(normalizeRows(rows));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -63,13 +83,13 @@ app.get("/api/by-category", async (req, res) => {
 app.get("/api/by-store", async (req, res) => {
   try {
     const rows = await query(`
-      select st.store_id, sum(f.net_amount) as net_amount
+      select st.store_id, cast(sum(f.net_amount) as float64) as net_amount
       from \`${PROJECT_ID}.dev_marts.fct_sales_unified\` f
       left join \`${PROJECT_ID}.dev_marts.dim_store\` st on f.store_key = st.store_key
       group by st.store_id
       order by net_amount desc
     `);
-    res.json(rows);
+    res.json(normalizeRows(rows));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -80,15 +100,15 @@ app.get("/api/top-products", async (req, res) => {
   try {
     const rows = await query(`
       select p.product_name, p.sku, p.brand,
-             sum(f.quantity) as quantity,
-             sum(f.net_amount) as net_amount
+             cast(sum(f.quantity) as float64) as quantity,
+             cast(sum(f.net_amount) as float64) as net_amount
       from \`${PROJECT_ID}.dev_marts.fct_sales_unified\` f
       left join \`${PROJECT_ID}.dev_marts.dim_product\` p on f.product_key = p.product_key
       group by p.product_name, p.sku, p.brand
       order by net_amount desc
       limit ${limit}
     `);
-    res.json(rows);
+    res.json(normalizeRows(rows));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -97,11 +117,11 @@ app.get("/api/top-products", async (req, res) => {
 app.get("/api/source-split", async (req, res) => {
   try {
     const rows = await query(`
-      select source_type, sum(net_amount) as net_amount, count(*) as row_count
+      select source_type, cast(sum(net_amount) as float64) as net_amount, count(*) as row_count
       from \`${PROJECT_ID}.dev_marts.fct_sales_unified\`
       group by source_type
     `);
-    res.json(rows);
+    res.json(normalizeRows(rows));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -112,14 +132,15 @@ app.get("/api/inventory-risk", async (req, res) => {
   try {
     const rows = await query(`
       select st.store_id, p.product_name, p.sku, p.category,
-             f.units_on_hand, f.units_in_transit
+             cast(f.units_on_hand as float64) as units_on_hand,
+             cast(f.units_in_transit as float64) as units_in_transit
       from \`${PROJECT_ID}.dev_marts.fct_inventory\` f
       left join \`${PROJECT_ID}.dev_marts.dim_store\` st on f.store_key = st.store_key
       left join \`${PROJECT_ID}.dev_marts.dim_product\` p on f.product_key = p.product_key
       order by f.units_on_hand asc
       limit ${limit}
     `);
-    res.json(rows);
+    res.json(normalizeRows(rows));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
