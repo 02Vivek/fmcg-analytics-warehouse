@@ -1,0 +1,89 @@
+version: 2
+
+models:
+  - name: dim_store
+    description: "One row per store."
+    columns:
+      - name: store_key
+        tests: [unique, not_null]
+      - name: store_id
+        tests: [not_null]
+
+  - name: dim_date
+    description: "One row per calendar day."
+    columns:
+      - name: date_key
+        tests: [unique, not_null]
+      - name: date
+        tests: [unique, not_null]
+
+  - name: dim_product
+    description: "SCD Type 2 product dimension. Multiple rows per sku possible (one per historical version)."
+    columns:
+      - name: product_key
+        tests: [unique, not_null]
+      - name: sku
+        tests: [not_null]
+      - name: category
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['oral_care', 'home_care', 'personal_care']
+
+  - name: fct_sales
+    description: "Sales fact at line-item grain (one row per transaction per sku)."
+    columns:
+      - name: sales_key
+        tests: [unique, not_null]
+      - name: product_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_key
+      - name: store_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_store')
+                field: store_key
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: net_amount
+        tests: [not_null]
+
+  - name: fct_inventory
+    description: "Inventory fact at product x store x day grain."
+    columns:
+      - name: inventory_key
+        tests: [unique, not_null]
+      - name: product_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_key
+      - name: store_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_store')
+                field: store_key
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: units_on_hand
+        tests: [not_null]

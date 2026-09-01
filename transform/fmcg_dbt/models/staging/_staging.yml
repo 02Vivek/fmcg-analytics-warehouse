@@ -1,0 +1,9 @@
+version: 2
+
+models:
+  - name: stg_sales
+    description: "Cleaned, deduplicated sales line items from raw_sales. One row per transaction."
+  - name: stg_inventory
+    description: "Cleaned, deduplicated inventory snapshots from raw_inventory. One row per store/sku/day."
+  - name: stg_product
+    description: "Cleaned, deduplicated product master from raw_product_master. One row per sku (latest values only -- history is tracked separately by product_snapshot)."

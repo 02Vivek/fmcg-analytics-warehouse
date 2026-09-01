@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: raw
+    database: fmcg-warehouse-506917
+    schema: dev_raw
+    tables:
+      - name: raw_sales
+      - name: raw_inventory
+      - name: raw_product_master
+      - name: raw_stream_pos

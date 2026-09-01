@@ -1,0 +1,68 @@
+DESIGN DECISIONS & TRADE-OFFS
+(Running log — append new entries below as they come up. Newest at the bottom.)
+
+------------------------------------------------------------
+1. Phase 1 — raw_sales / raw_inventory / raw_product_master use WRITE_TRUNCATE on the whole table, not partition-scoped writes.
+
+What it does:
+  Every DAG run truncates (wipes) the entire destination table, then reloads
+  only that day's file. This guarantees re-running the same day's load never
+  creates duplicates (idempotent).
+
+The trade-off:
+  Because it truncates the WHOLE table (not just "today's slice"), the raw
+  layer only ever holds the MOST RECENT day's data. Running tomorrow's load
+  wipes out today's rows too -- there is no accumulated history in raw, and
+  at large data volumes this means unnecessary full-table rewrite cost every
+  run.
+
+What production would do instead:
+  Make the raw tables date-partitioned (e.g. by sold_at / load_date) and
+  scope each day's write to only that day's partition (e.g. using a
+  partition decorator like raw_sales$20260829). This preserves full raw
+  history forever, keeps each day's load fast/cheap regardless of total
+  table size, and stays idempotent (re-running today only re-truncates
+  today's partition).
+
+Why not done now:
+  Kept simple deliberately for the first Phase 1 build, to avoid partition
+  decorators / partition-column choices before proving the basic
+  files -> Airflow -> BigQuery mechanism works. Flagged here to fix later.
+
+Status: NOT YET FIXED. Revisit and implement partitioned tables.
+------------------------------------------------------------
+
+2. Phase 4 -- fct_sales_unified UNION ALLs batch + stream with no reconciliation
+   / dedup between the two sources.
+
+What it does:
+  Stacks int_sales_enriched (batch, source_type='batch') and
+  int_stream_enriched (stream, source_type='stream') together with a plain
+  UNION ALL, so a dashboard can query near-real-time activity alongside
+  reconciled batch history in one mart.
+
+The trade-off:
+  In this project, batch and stream are two independent generators that
+  never produce the same transaction_id, so no double-counting happens here.
+  In a REAL system, the same physical sale could legitimately show up in
+  BOTH the live stream (immediately) and the next day's reconciled batch
+  file (the "official" record) -- and this simple UNION ALL would count
+  that sale twice.
+
+What production would do instead:
+  Reconcile the two sources explicitly: e.g. once a transaction_id appears
+  in a batch load, drop/supersede its earlier streaming-sourced row (an
+  "upsert" or MERGE keyed on transaction_id, batch wins), rather than
+  blindly unioning both. This is exactly the "shipment-to-sale
+  reconciliation" problem named in the project report's problem statement.
+
+Why not done now:
+  This project's batch and streaming data are independently generated
+  synthetic sources that never actually overlap, so the double-counting
+  risk is theoretical here, not observed. Kept simple to demonstrate the
+  unification mechanism first. Flagged here to fix if real overlapping
+  sources are ever introduced.
+
+Status: NOT YET FIXED. Revisit if/when batch and stream sources can
+represent the same real-world transaction.
+------------------------------------------------------------

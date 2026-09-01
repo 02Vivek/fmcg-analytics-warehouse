@@ -1,0 +1,19 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Credentials -- NEVER commit these
+*.json
+!package.json
+!package-lock.json
+credentials/
+
+/docs/
