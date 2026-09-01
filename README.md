@@ -24,7 +24,7 @@ STREAM: Sources -> Pub/Sub -> Dataflow (Beam) -> BigQuery raw (Bronze) --/
 
 Medallion data-quality progression: **raw** (Bronze, untransformed) -> **staging/intermediate** (Silver, cleaned/typed/deduplicated) -> **marts** (Gold, business-ready facts and dimensions).
 
-See `docs/architecture.png` / `docs/architecture.excalidraw` for the full diagram.
+![Architecture diagram](docs/fmcg_warehouse_pipeline_flow.svg)
 
 ## Tech stack
 
@@ -39,7 +39,7 @@ See `docs/architecture.png` / `docs/architecture.excalidraw` for the full diagra
 | Data warehouse | BigQuery |
 | Transformation / modeling | dbt (dbt-bigquery) |
 | Language | Python (generators, Beam pipeline), SQL (dbt models) |
-| BI / dashboards | Looker Studio |
+| BI / dashboards | Looker Studio, and a custom React + Node/Express dashboard |
 | Local containerization | Docker |
 | Version control workflow | Git |
 | Development partner | Claude Code (Anthropic's agentic CLI) -- used throughout as a hands-on pair-programming partner (see below) |
@@ -64,7 +64,7 @@ See `docs/architecture.png` / `docs/architecture.excalidraw` for the full diagra
 
 **Documented engineering judgment** -- `docs/trade_offs.txt` is a running log of intentional simplifications made during the build (e.g. full-table-truncate vs. partition-scoped writes; unreconciled batch/stream union), each with what was done, why, and what the production-grade fix would look like. `transform/fmcg_dbt/CONTRIBUTING.md` documents naming conventions and where each type of logic belongs.
 
-**BI layer** -- A Looker Studio report connected directly to the star schema via custom SQL, surfacing sell-through by store/category/product and inventory position for stockout-risk visibility.
+**BI layer** -- Two serving options on top of the same star schema: a Looker Studio report connected via custom SQL, and a custom-built React dashboard (Node/Express API querying BigQuery directly) surfacing revenue trends, sell-through by store/category/product, and inventory position for stockout-risk visibility.
 
 ## Data quality and code standards
 
@@ -89,9 +89,10 @@ orchestration/   Local Airflow project (Docker) + the batch ingestion DAG
 data/generators/ Synthetic batch data generator
 transform/       dbt project: staging, intermediate, marts, snapshots, tests
 streaming/       Pub/Sub event generator + Apache Beam pipeline
+dashboard/       React + Node/Express dashboard (api/ backend, web/ frontend)
 docs/            Architecture diagrams, execution manual, trade-offs log
 ```
 
 ## Status
 
-Phases complete: infrastructure foundation, batch ingestion, dimensional modeling, data quality/testing, and the streaming pipeline (including a validated real-Dataflow run). A Looker Studio dashboard connects directly to the star schema. CI/CD automation and a fully packaged production deployment are documented as the logical next steps rather than implemented, to keep this build's scope honest about what was actually run and verified versus what the architecture is designed to support.
+Phases complete: infrastructure foundation, batch ingestion, dimensional modeling, data quality/testing, and the streaming pipeline (including a validated real-Dataflow run). Two dashboards connect directly to the star schema: a Looker Studio report and a custom React + Node/Express dashboard. CI/CD automation and a fully packaged production deployment are documented as the logical next steps rather than implemented, to keep this build's scope honest about what was actually run and verified versus what the architecture is designed to support.

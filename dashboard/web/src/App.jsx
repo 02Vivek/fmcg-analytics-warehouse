@@ -20,7 +20,6 @@ import {
   fetchByCategory,
   fetchByStore,
   fetchTopProducts,
-  fetchSourceSplit,
   fetchInventoryRisk,
 } from "./api";
 
@@ -46,7 +45,6 @@ export default function App() {
   const [byCategory, setByCategory] = useState([]);
   const [byStore, setByStore] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
-  const [sourceSplit, setSourceSplit] = useState([]);
   const [inventoryRisk, setInventoryRisk] = useState([]);
   const [error, setError] = useState(null);
 
@@ -57,7 +55,6 @@ export default function App() {
       fetchByCategory().then(setByCategory),
       fetchByStore().then(setByStore),
       fetchTopProducts(10).then(setTopProducts),
-      fetchSourceSplit().then(setSourceSplit),
       fetchInventoryRisk(15).then(setInventoryRisk),
     ]).catch((err) => setError(err.message));
   }, []);
@@ -128,20 +125,20 @@ export default function App() {
 
       <div className="chart-row">
         <section className="chart-card half">
-          <h2>Batch vs. Stream Revenue</h2>
+          <h2>Revenue Share by Category</h2>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie
-                data={sourceSplit}
+                data={byCategory}
                 dataKey="net_amount"
-                nameKey="source_type"
+                nameKey="category"
                 cx="50%"
                 cy="50%"
                 outerRadius={90}
                 label
               >
-                {sourceSplit.map((entry, index) => (
-                  <Cell key={entry.source_type} fill={COLORS[index % COLORS.length]} />
+                {byCategory.map((entry, index) => (
+                  <Cell key={entry.category} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip formatter={(v) => formatCurrency(v)} />
