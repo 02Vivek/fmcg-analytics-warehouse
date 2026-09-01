@@ -16,4 +16,5 @@ venv/
 !package-lock.json
 credentials/
 
-/docs/
+/docs/execution_manual.pdf
+/docs/extra-info.txt
