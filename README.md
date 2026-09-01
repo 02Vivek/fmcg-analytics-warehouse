@@ -24,7 +24,7 @@ STREAM: Sources -> Pub/Sub -> Dataflow (Beam) -> BigQuery raw (Bronze) --/
 
 Medallion data-quality progression: **raw** (Bronze, untransformed) -> **staging/intermediate** (Silver, cleaned/typed/deduplicated) -> **marts** (Gold, business-ready facts and dimensions).
 
-![Architecture diagram](docs/architecture-daigram.png)
+![Architecture diagram](docs/cpg_warehouse_pipeline_flow.png)
 
 ## Tech stack
 
